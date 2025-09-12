@@ -55,20 +55,6 @@ const usuarioService = {
   },
 
   /**
-   * Hard delete: elimina usuario definitivamente (force)
-   * @param {number} id
-   */
-  eliminarUsuarioForce: async (id) => {
-    try {
-      const response = await API.delete(`/usuarios/${id}/force`);
-      return response;
-    } catch (error) {
-      console.error(`Error al eliminar definitivamente usuario con ID ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
    * Soft delete: cambia el estado activo del usuario
    * @param {number} id
    * @param {boolean} activo
@@ -82,6 +68,22 @@ const usuarioService = {
       throw error;
     }
   },
+
+  /**
+   * Hard delete: elimina usuario definitivamente (force)
+   * @param {number} id
+   */
+  eliminarUsuarioForce: async (id) => {
+    try {
+      const response = await API.delete(`/usuarios/${id}`);
+      return response;
+    } catch (error) {
+      console.error(`Error al eliminar definitivamente usuario con ID ${id}:`, error);
+      throw error;
+    }
+  },
 };
+  
+  
 
 export default usuarioService;

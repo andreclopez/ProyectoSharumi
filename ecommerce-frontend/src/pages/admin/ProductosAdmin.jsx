@@ -64,7 +64,7 @@ const ProductosAdmin = () => {
         setProductos(prev => prev.map(prod => prod.id === productoEdit.id ? response.data.data : prod));
       } else {
         response = await productoService.crearProducto(productoData);
-        setProductos(prev => [...prev, response.data]);
+        setProductos(prev => [...prev, response.data.data]);
       }
 
       // Limpiar formulario
