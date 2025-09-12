@@ -53,7 +53,7 @@ const defineUsuario = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'roles', // tabla referenciada
+        model: 'roles', 
         key: 'id'
       },
        onUpdate: 'CASCADE',

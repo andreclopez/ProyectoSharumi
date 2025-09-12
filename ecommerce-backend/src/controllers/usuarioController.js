@@ -56,7 +56,11 @@ export const obtenerUsuarioPorId = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: "Parámetros inválidos", errors: errors.array() });
+      return res.status(400).json({ 
+        success: false, 
+        message: "Parámetros inválidos", 
+        errors: errors.array() 
+      });
     }
 
     const { id } = req.params;
@@ -70,13 +74,23 @@ export const obtenerUsuarioPorId = async (req, res) => {
       ]
     });
 
-    if (!usuario) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    if (!usuario) return res.status(404).json({ 
+      success: false, 
+      message: 'Usuario no encontrado' 
+    });
 
-    res.status(200).json({ success: true, data: usuario });
+    res.status(200).json({ 
+      success: true, 
+      data: usuario 
+    });
 
   } catch (error) {
     console.error("Error al obtener usuario por ID:", error);
-    res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor', 
+      error: error.message 
+    });
   }
 };
 
@@ -84,7 +98,11 @@ export const obtenerUsuarioPorId = async (req, res) => {
 export const crearUsuario = async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ success: false, message: 'Datos de entrada inválidos', details: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ 
+      success: false, 
+      message: 'Datos de entrada inválidos', 
+      details: errors.array() 
+    });
 
     const { nombre, apellido, telefono, email, password, fechaRegistro, idRol } = req.body;
 
@@ -92,7 +110,10 @@ export const crearUsuario = async (req, res) => {
     let rol = null;
     if (idRol) {
       rol = await Rol.findByPk(idRol);
-      if (!rol) return res.status(400).json({ success: false, error: 'Rol no encontrado' });
+      if (!rol) return res.status(400).json({ 
+        success: false, 
+        error: 'Rol no encontrado' 
+      });
     }
 
     const nuevoUsuario = await Usuario.create({ nombre, apellido, telefono, email, password, fechaRegistro, idRol: rol?.id || null });
@@ -105,14 +126,22 @@ export const crearUsuario = async (req, res) => {
       ]
     });
 
-    res.status(201).json({ success: true, data: usuarioCompleto, message: "Usuario creado exitosamente" });
+    res.status(201).json({ 
+      success: true, 
+      data: usuarioCompleto, 
+      message: "Usuario creado exitosamente" 
+    });
 
   } catch (error) {
     console.error("Error al crear usuario:", error);
     if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({ success: false, message: 'Error de validación', errors: error.errors.map(e => e.message) });
     }
-    res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor', 
+      error: error.message 
+    });
   }
 };
 
@@ -121,14 +150,24 @@ export const actualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ success: false, message: "Parámetros inválidos", errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ 
+      success: false, 
+      message: "Parámetros inválidos", 
+      errors: errors.array() 
+    });
 
     const usuario = await Usuario.findByPk(id);
-    if (!usuario) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    if (!usuario) return res.status(404).json({ 
+      success: false, 
+      message: 'Usuario no encontrado' 
+    });
 
     if (req.body.idRol) {
       const rol = await Rol.findByPk(req.body.idRol);
-      if (!rol) return res.status(400).json({ success: false, error: "Rol no encontrado" });
+      if (!rol) return res.status(400).json({ 
+        success: false, 
+        error: "Rol no encontrado" 
+      });
     }
 
     // Ignorar password si no se envía
@@ -150,9 +189,17 @@ export const actualizarUsuario = async (req, res) => {
   } catch (error) {
     console.error("Error al actualizar usuario:", error);
     if (error.name === 'SequelizeValidationError') {
-      return res.status(400).json({ success: false, message: 'Error de validación', errors: error.errors.map(e => e.message) });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Error de validación', 
+        errors: error.errors.map(e => e.message) 
+      });
     }
-    res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor', 
+      error: error.message 
+    });
   }
 };
 
@@ -164,7 +211,10 @@ export const eliminarUsuario = async (req, res) => {
     const usuario = await Usuario.findByPk(id);
 
     if (!usuario) {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Usuario no encontrado' 
+      });
     }
 
     // Revisar carritos activos
@@ -197,7 +247,10 @@ export const eliminarUsuario = async (req, res) => {
     // Borrar usuario
     await usuario.destroy();
 
-    res.status(200).json({ success: true, message: 'Usuario eliminado exitosamente' });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Usuario eliminado exitosamente' 
+    });
 
   } catch (error) {
     console.error("Error al eliminar usuario:", error);

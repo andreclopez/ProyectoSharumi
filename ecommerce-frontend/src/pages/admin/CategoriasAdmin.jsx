@@ -23,7 +23,7 @@ const CategoriasAdmin = () => {
       try {
         setCargando(true);
         const response = await categoriaService.obtenerCategorias();
-        setCategorias(response.data); // asumimos que la data está en response.data
+        setCategorias(response.data.data || []); 
         setError(null);
       } catch (err) {
         console.error('Error al obtener categorías:', err);
@@ -48,10 +48,10 @@ const CategoriasAdmin = () => {
     let response;
     if (editar && categoriaEdit?.id) {
       response = await categoriaService.actualizarCategoria(categoriaEdit.id, categoriaData);
-      setCategorias(categorias.map(cat => cat.id === categoriaEdit.id ? response.data : cat));
+      setCategorias(prev => prev.map(cat => cat.id === categoriaEdit.id ? response.data.data : cat));
     } else {
       response = await categoriaService.crearCategoria(categoriaData);
-      setCategorias([...categorias, response.data]);
+      setCategorias(prev => [...prev, response.data.data]);
     }
 
     // Limpiar estados

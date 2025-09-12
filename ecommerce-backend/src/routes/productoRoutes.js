@@ -48,7 +48,7 @@ router.put('/:id', [...validateProductoUpdate, ...validateProductoFK], async (re
 // Eliminar producto
 router.delete('/:id', async (req, res) => {
   try {
-    await eliminarProducto(req, res); // llama al controller para hacer limpieza manual y eliminar produc
+    await eliminarProducto(req, res); // llama al controller para hacer limpieza manual y realizar el hard delete
   } catch (error) {
     res.status(400).json({ 
       success: false,
