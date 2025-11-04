@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configuración base de axios
 const API = axios.create({
-  baseURL: 'http://localhost:3001/api',
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -17,5 +17,14 @@ API.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Interceptor para agregar token
+API.interceptors.request.use((config) => {
+  const accessToken = localStorage.getItem("accessToken");
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
 
 export default API;

@@ -56,6 +56,36 @@ export const obtenerPedidoPorId = async (req, res) => {
   }
 };
 
+// Obtener pedidos usuario autenticado
+export const obtenerMisPedidos = async (req, res) => {
+  try {
+    
+    const idUsuario = req.usuario.id;
+
+    const pedidos = await Pedido.findAll({
+      where: { idUsuario: idUsuario }, 
+      include: [ 
+        {
+          model: PedidoxProducto,
+          as: 'pedidoxproductos',
+          include: [{ model: Producto, as: 'producto', attributes: ['id', 'nombre'] }]
+        }
+      ],
+      order: [['createdAt', 'DESC']] 
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Pedidos del usuario obtenidos correctamente.',
+      data: pedidos
+    });
+
+  } catch (error) {
+    console.error('Error al obtener mis pedidos:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+  }
+};
+
 // Crear pedido
 export const crearPedido = async (req, res) => {
   try {
@@ -64,11 +94,9 @@ export const crearPedido = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Datos de entrada inválidos', errors: errors.array() });
     }
 
-    const { idUsuario, idCuponDescuento, estado, total, productos } = req.body;
+    const idUsuario = req.usuario.id; 
 
-    // Validar usuario
-    const usuario = await Usuario.findByPk(idUsuario);
-    if (!usuario) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    const { idCuponDescuento, estado, total, productos } = req.body;
 
     // Crear pedido
     const nuevoPedido = await Pedido.create({

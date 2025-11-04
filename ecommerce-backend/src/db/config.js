@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+export const PORT = process.env.PORT || 3001;
+export const RAIZ = process.env.RAIZ || `http://localhost:${PORT}`;
+
 export default {
   development: {
     username: "root",

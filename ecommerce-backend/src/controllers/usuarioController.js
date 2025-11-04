@@ -1,5 +1,11 @@
 import { Usuario, Rol, Pedido, Carrito, Producto, Proveedor, CarritoxProducto, PedidoxProducto } from '../models/index.js';
 import { validationResult } from 'express-validator';
+import { Op } from 'sequelize';
+
+// Perfil del usuario logueado (ruta protegida)
+export const perfilController = async (req, res) => {
+  res.json({ success: true, data: req.usuario });
+};
 
 // Obtener todos los usuarios
 export const obtenerUsuarios = async (req, res) => {
@@ -13,10 +19,24 @@ export const obtenerUsuarios = async (req, res) => {
       });
     }
 
-    const { page = 1, limit = 10, } = req.query;
+    const { page = 1, limit = 10, search = '', status } = req.query;
     const offset = (page - 1) * limit;
 
+    // Construir filtro dinámico
     const whereClause = {};
+
+    // Filtro de búsqueda por nombre, apellido o email
+    if (search) {
+      whereClause[Op.or] = [
+        { nombre: { [Op.like]: `%${search}%` } },
+        { apellido: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    // Filtro por estado
+    if (status === 'true') whereClause.activo = true;
+    else if (status === 'false') whereClause.activo = false;
 
     const usuarios = await Usuario.findAndCountAll({
       where: whereClause,
@@ -28,6 +48,7 @@ export const obtenerUsuarios = async (req, res) => {
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [['fechaRegistro', 'DESC']], 
+      distinct: true,
     });
 
     res.status(200).json({

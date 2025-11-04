@@ -1,16 +1,13 @@
 import { Usuario } from "../models/index.js";
 import { Rol } from "../models/index.js";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const saltBcrypt = 10; 
-
-// función para generar tokens
+// Generar tokens
 const generarToken = (usuario) => {
   const accessToken = jwt.sign(
-    { id: usuario.id, rol: usuario.Rol?.codigo }, // aseguramos que Rol exista
+    { id: usuario.id, rol: usuario.Rol?.codigo },
     process.env.JWT_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "1h" }
   );
 
   const refreshToken = jwt.sign(
@@ -25,30 +22,25 @@ const generarToken = (usuario) => {
 // registrar un nuevo usuario
 export const register = async (req, res, next) => {
   try {
-    const { nombre, email, password, idRol } = req.body;
-
-    if (!idRol) {
-      return res.status(400).json({
-        success: false,
-        message: "Se requiere el rol",
-        data: {},
-      });
-    }
-
-    // hashear la contraseña
-    const hashedPassword = await bcrypt.hash(password, saltBcrypt);
+    const { nombre, apellido, email, password } = req.body;
 
     const nuevoUsuario = await Usuario.create({
       nombre,
+      apellido,
       email,
-      password: hashedPassword,
-      idRol,
+      password,
+      idRol: 2
     });
 
     res.status(201).json({
       success: true,
       message: "Usuario registrado exitosamente",
-      data: { id: nuevoUsuario.id, email: nuevoUsuario.email },
+      data: { 
+        id: nuevoUsuario.id,
+        nombre: nuevoUsuario.nombre, 
+        email: nuevoUsuario.email,
+        idRol: nuevoUsuario.idRol  
+      },
     });
   } catch (error) {
     next(error);
@@ -62,16 +54,20 @@ export const login = async (req, res, next) => {
 
     const usuario = await Usuario.findOne({
       where: { email },
-      include: { model: Rol, attributes: ["codigo"] },
+      include: { model: Rol, as: "rol", attributes: ["codigo"] },
     });
 
     if (!usuario) {
-      return res.status(401).json({ success: false, message: "Credenciales incorrectas" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Credenciales incorrectas" });
     }
 
-    const isMatch = await bcrypt.compare(password, usuario.password);
+    const isMatch = await usuario.validarPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Credenciales incorrectas" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Credenciales incorrectas" });
     }
 
     const tokens = generarToken(usuario);
@@ -79,7 +75,16 @@ export const login = async (req, res, next) => {
     res.json({
       success: true,
       message: "Inicio de sesión exitoso",
-      data: tokens,
+      data: {
+        user: {
+          id: usuario.id,
+          email: usuario.email,
+          idRol: usuario.idRol,
+          nombre: usuario.nombre,
+          rol: usuario.rol?.codigo || null, // 🔹 opcional
+        },
+        tokens,
+      },
     });
   } catch (error) {
     next(error);
@@ -100,7 +105,7 @@ export const refreshToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
 
     const usuario = await Usuario.findByPk(decoded.id, {
-      include: { model: Rol, attributes: ["codigo"] },
+      include: { model: Rol, as: 'rol', attributes: ["codigo", "nombre"] },
     });
 
     if (!usuario) {
@@ -116,7 +121,6 @@ export const refreshToken = async (req, res, next) => {
       message: "Token refrescado exitosamente",
       data: tokens,
     });
-
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       return res.status(401).json({

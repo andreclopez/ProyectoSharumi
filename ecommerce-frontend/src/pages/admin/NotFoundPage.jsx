@@ -11,7 +11,7 @@ const NotFoundPage = () => {
         <h3 className="text-2xl font-semibold text-white mb-4">Página no encontrada</h3>
         <p className="text-gray-400 mb-6">Lo sentimos, la página que estás buscando no existe.</p>
         <Link 
-          to="/" 
+          to="/admin/dashboard" 
           className="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-300"
         >
           Volver a la página principal

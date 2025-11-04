@@ -3,7 +3,7 @@ import dotenv from 'dotenv'
 
 dotenv.config();
 
-const dbName = process.env.DB_NAME || 'Sharumi';
+const dbName = process.env.DB_NAME || 'sharumi';
 
 const dbUser = process.env.DB_USER || 'root';
 

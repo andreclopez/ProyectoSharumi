@@ -16,11 +16,22 @@ const defineMensaje = (sequelize) => {
     idProducto: {
       type: DataTypes.INTEGER,
       allowNull: false
+    },
+    idUsuario: {
+      type: DataTypes.INTEGER,
+      allowNull: false
     }
   }, {
     tableName: 'mensajes',
-    timestamps: false,
+    timestamps: true,
   });
+
+  Mensaje.associate = (models) => {
+    Mensaje.belongsTo(models.Usuario, {
+      foreignKey: 'idUsuario',
+      as: 'usuario'
+    });
+  };
 
   return Mensaje;
 };

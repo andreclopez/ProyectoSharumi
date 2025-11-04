@@ -1,9 +1,9 @@
 import express from 'express';
+import { protect as verificarToken } from '../middleware/authMiddleware.js'
 import { validationResult } from 'express-validator';
 import {
     crearMensaje,
-    obtenerTodosLosMensajes,
-    obtenerMensajePorProducto,
+    obtenerMensajesPorProducto,
     obtenerMensajePorId,
     actualizarMensaje,
     eliminarMensaje
@@ -12,22 +12,19 @@ import { validateMensajeCreate } from '../middleware/validation.js';
 
 const router = express.Router({ mergeParams: true });
 
-// Listar todos los mensajes
-router.get('/', obtenerTodosLosMensajes);
-
 // Obtener mensajes por producto
-router.get('/producto/:idProducto', obtenerMensajePorProducto);
-
-// Obtener mensaje por ID
-router.get('/:id', obtenerMensajePorId);
+router.get('/', obtenerMensajesPorProducto);
 
 // Crear mensaje
-router.post('/:idProducto', validateMensajeCreate, async (req, res) => {
+router.post('/', [verificarToken, validateMensajeCreate], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errores: errors.array() });
 
     await crearMensaje(req, res);
 });
+
+// Obtener mensaje por ID
+router.get('/:id', obtenerMensajePorId);
 
 // Actualizar mensaje
 router.put('/:id', validateMensajeCreate, async (req, res) => {

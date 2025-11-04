@@ -11,6 +11,9 @@ import proveedorRoutes from './proveedorRoutes.js';
 import usuarioRoutes from './usuarioRoutes.js';
 import mensajeRoutes from './mensajeRoutes.js';
 import rolRoutes from './rolRoutes.js'; 
+import archivoRoutes from './archivoRoutes.js';
+import sharuIaRoutes from './sharuIaRoutes.js';
+import manejarEnvioContacto from '../controllers/contactoController.js';
 
 const router = Router();
 
@@ -25,6 +28,9 @@ router.use('/productos', productoRoutes);
 router.use('/proveedores', proveedorRoutes);
 router.use('/usuarios', usuarioRoutes);
 router.use('/roles', rolRoutes); 
+router.use('/files', archivoRoutes);
+router.use('/ai', sharuIaRoutes);
+router.post('/contacto', manejarEnvioContacto);
 
 // Mensajes anidados por producto
 router.use('/productos/:idProducto/mensajes', mensajeRoutes);

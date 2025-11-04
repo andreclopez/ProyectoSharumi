@@ -1,4 +1,5 @@
 import { DataTypes } from 'sequelize';
+import bcrypt from 'bcryptjs';
 
 const defineUsuario = (sequelize) => {
   const Usuario = sequelize.define('Usuario', {
@@ -63,11 +64,44 @@ const defineUsuario = (sequelize) => {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true
-    }
+    },
+    // campos para login social
+    proveedor: {
+      type: DataTypes.STRING, // indica cómo se registró el usuario (local, google, facebook).
+      allowNull: false,
+      defaultValue: "local",
+    },
+    proveedorId: {
+      type: DataTypes.STRING, // id que da Google/Facebook guarda el id que devuelve el proveedor
+      allowNull: true,
+    },
   }, {
     tableName: 'usuarios',
     timestamps: true,
   });
+
+  // Para encriptar la contraseña antes de crearla
+
+  Usuario.beforeCreate(async (usuario) => {
+    if (usuario.password) {
+      const salt = await bcrypt.genSalt(10);
+      usuario.password = await bcrypt.hash(usuario.password, salt);
+    }
+  });
+
+  // Encriptar si se actualiza contraseña
+
+  Usuario.beforeUpdate(async (usuario) =>{
+    if (usuario.changed("password")) {
+      const salt = await bcrypt.genSalt(10);
+      usuario.password = await bcrypt.hash(usuario.password, salt);
+    }
+  });
+
+  // Método de instancia para validar la contraseña
+  Usuario.prototype.validarPassword = async function (passwordPlano) {
+    return await bcrypt.compare(passwordPlano, this.password);
+  }
 
   return Usuario; 
 };

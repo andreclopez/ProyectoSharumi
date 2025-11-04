@@ -29,7 +29,7 @@ export const validatePagination = [
 // Validaciones para FKs de productos
 export const validateProductoFK = [
   body('idUsuario')
-    .notEmpty().withMessage('El idUsuario es requerido')
+    .optional({ nullable: true })
     .isInt({ min: 1 }).withMessage('El idUsuario debe ser un número entero positivo')
     .custom(async (value) => {
       const usuario = await Usuario.findByPk(value);
@@ -37,7 +37,7 @@ export const validateProductoFK = [
     }),
 
   body('idCategoria')
-    .optional({ nullable: true }) // ahora sí acepta null
+    .optional({ nullable: true }) 
     .isInt({ min: 1 }).withMessage('El idCategoria debe ser un número entero positivo')
     .custom(async (value) => {
       if (value) {
@@ -51,27 +51,40 @@ export const validateProductoFK = [
 export const validateProductoCreate = [
   body('nombre')
     .notEmpty().withMessage('El nombre es requerido')
-    .isLength({ min: 2, max: 100 }),
+    .isLength({ min: 2, max: 100 }).withMessage('El nombre debe tener entre 2 y 100 caracteres'),
+
   body('precio')
+    .notEmpty().withMessage('El precio es requerido')
+    .toFloat()
     .isFloat({ min: 0 }).withMessage('El precio debe ser un número mayor o igual a 0'),
+
   body('stock')
+    .notEmpty().withMessage('El stock es requerido')
+    .toInt()
     .isInt({ min: 0 }).withMessage('El stock debe ser un número entero mayor o igual a 0'),
+
   body('descripcion')
     .optional()
     .isLength({ max: 1000 }).withMessage('La descripción no puede exceder 1000 caracteres'),
-  body('imagenUrl')
-    .notEmpty().withMessage('La imagen es requerida')
-    .isURL().withMessage('Debe ser una URL válida'),
-  body('rating') //opcional
+
+  body('rating') // opcional
     .optional({ nullable: true })
     .isFloat({ min: 0, max: 5 }).withMessage('El rating debe estar entre 0 y 5'),
-  body('fechaAlta')  // Fecha opcional, Sequelize la pone por defecto
+
+  body('fechaAlta')  // opcional, Sequelize pone la fecha por defecto
     .optional({ nullable: true })
     .isISO8601().withMessage('Debe ser una fecha válida'),
+
   body('idUsuario')
     .notEmpty().withMessage('El idUsuario es requerido')
-    .isInt({ min: 1 }),
-  body('idCategoria') //opcional
+    .toInt()
+    .isInt({ min: 1 }).withMessage('El idUsuario debe ser un número entero positivo')
+    .custom(async (value) => {
+      const usuario = await Usuario.findByPk(value);
+      if (!usuario) throw new Error('El idUsuario no existe');
+    }),
+
+  body('idCategoria') // opcional
     .optional({ nullable: true })
     .isInt({ min: 1 }).withMessage('El idCategoria debe ser un número entero positivo')
 ];
@@ -81,28 +94,83 @@ export const validateProductoUpdate = [
   body('nombre')
     .optional()
     .isLength({ min: 2, max: 100 }).withMessage('El nombre debe tener entre 2 y 100 caracteres'),
+
   body('precio')
     .optional()
+    .toFloat()
     .isFloat({ min: 0 }).withMessage('El precio debe ser un número mayor o igual a 0'),
+
   body('stock')
     .optional()
+    .toInt()
     .isInt({ min: 0 }).withMessage('El stock debe ser un número entero mayor o igual a 0'),
-  body('idCategoria')
-    .optional({ nullable: true })
-    .isInt({ min: 1 }).withMessage('El idCategoria debe ser un número entero positivo'),
+
   body('descripcion')
     .optional()
     .isLength({ max: 1000 }).withMessage('La descripción no puede exceder 1000 caracteres'),
+
   body('rating')
     .optional({ nullable: true })
     .isFloat({ min: 0, max: 5 }).withMessage('El rating debe estar entre 0 y 5'),
+
   body('fechaAlta')
     .optional({ nullable: true })
-    .isISO8601().withMessage('Debe ser una fecha válida')
+    .isISO8601().withMessage('Debe ser una fecha válida'),
+
+  body('idUsuario') // opcional
+    .optional()
+    .toInt()
+    .isInt({ min: 1 }).withMessage('El idUsuario debe ser un número entero positivo')
+    .custom(async (value) => {
+      if (value) {
+        const usuario = await Usuario.findByPk(value);
+        if (!usuario) throw new Error('El idUsuario no existe');
+      }
+    }),
+
+  body('idCategoria') // opcional
+    .optional({ nullable: true })
+    .toInt()
+    .isInt({ min: 1 }).withMessage('El idCategoria debe ser un número entero positivo')
+    .custom(async (value) => {
+      if (value) {
+        const categoria = await Categoria.findByPk(value);
+        if (!categoria) throw new Error('La categoría no existe');
+      }
+    })
 ];
 
 // Validación de ID de producto
 export const validateProductoId = validateId;
+
+// Validaciones para creación de categorías
+export const validateCategoriaCreate = [
+  body('nombre')
+    .notEmpty().withMessage('El nombre es requerido')
+    .isLength({ min: 2, max: 100 }).withMessage('El nombre debe tener entre 2 y 100 caracteres'),
+
+  body('descripcion')
+    .optional()
+    .isLength({ max: 1000 }).withMessage('La descripción no puede exceder 1000 caracteres'),
+
+  body('activa')
+  .notEmpty().withMessage('El estado de la categoría es requerido')
+  .isBoolean().withMessage('El campo activa debe ser true o false')
+  .toBoolean()
+
+]
+
+// Validaciones para update categoría
+export const validateCategoriaUpdate = [
+  body('descripcion')
+    .optional()
+    .isLength({ max: 1000 }).withMessage('La descripción no puede exceder 1000 caracteres'),
+
+  body('activa')
+    .optional()
+    .isBoolean().withMessage('El campo activa debe ser true o false')
+    .toBoolean()
+];
 
 // Validación Pedido
 export const validatePedidoCreate = [

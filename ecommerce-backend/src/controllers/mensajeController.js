@@ -1,4 +1,6 @@
-import { Mensaje, Producto } from '../models/index.js';
+import { Mensaje, Producto, Usuario } from '../models/index.js';
+import { validationResult } from 'express-validator';
+import { enviarEmailNotificacionAdmin, enviarEmailConfirmacionCliente } from '../config/mailer.js';
 
 // ------------------------
 // Obtener todos los mensajes (sin filtro)
@@ -23,26 +25,19 @@ export const obtenerTodosLosMensajes = async (req, res) => {
 // ------------------------
 // Obtener mensajes de un producto
 // ------------------------
-export const obtenerMensajePorProducto = async (req, res) => {
+export const obtenerMensajesPorProducto = async (req, res) => {
   try {
     const { idProducto } = req.params;
 
-    const producto = await Producto.findByPk(idProducto);
-    if (!producto) {
-      return res.status(404).json({
-        success: false,
-        message: 'El producto no existe'
-      });
-    }
-
-    const mensajes = await Mensaje.findAll({ where: { idProducto } });
-
-    if (mensajes.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No se encontraron mensajes para este producto'
-      });
-    }
+    const mensajes = await Mensaje.findAll({ 
+      where: { idProducto },
+      include: {
+        model: Usuario,
+        as: 'usuario',
+        attributes: ['nombre'] 
+      },
+      order: [['createdAt', 'ASC']] 
+    });
 
     return res.status(200).json({
       success: true,
@@ -91,9 +86,15 @@ export const obtenerMensajePorId = async (req, res) => {
 // Crear mensaje
 // ------------------------
 export const crearMensaje = async (req, res) => {
+  const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: 'Error de validación', errores: errors.array() });
+    }
+
   try {
     const { idProducto } = req.params;
     const { texto } = req.body;
+    const idUsuario = req.usuario.id;
 
     // Validación de seguridad: verificar producto
     const producto = await Producto.findByPk(idProducto);
@@ -105,13 +106,27 @@ export const crearMensaje = async (req, res) => {
     }
 
     // Crear el mensaje
-    const nuevoMensaje = await Mensaje.create({ texto, idProducto });
+    const nuevoMensaje = await Mensaje.create({ texto, idProducto, idUsuario });
+
+    const mensajeCompleto = await Mensaje.findByPk(nuevoMensaje.id, {
+        include: {
+            model: Usuario,
+            as: 'usuario',
+            attributes: ['nombre', 'email']
+        }
+    });
+
+    if (mensajeCompleto) {
+      enviarEmailNotificacionAdmin(mensajeCompleto, producto);
+      enviarEmailConfirmacionCliente(mensajeCompleto, producto)
+    }
 
     return res.status(201).json({
       success: true,
       message: 'Mensaje creado exitosamente',
-      data: nuevoMensaje
+      data: mensajeCompleto
     });
+    
   } catch (error) {
     console.error('Error al crear mensaje:', error);
     return res.status(500).json({

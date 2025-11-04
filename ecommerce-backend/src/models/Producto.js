@@ -16,8 +16,8 @@ const defineProducto = (sequelize) => {
       allowNull: true,
     },
     imagenUrl: {
-      type: DataTypes.TEXT,
-      allowNull: false,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     rating: {
       type: DataTypes.INTEGER,

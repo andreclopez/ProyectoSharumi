@@ -6,12 +6,11 @@ import API from "./api";
 const productoService = {
   /**
    * Obtiene todos los productos
-   * @returns {Promise} - Promesa con los datos de productos
    */
   obtenerProductos: async () => {
     try {
       const response = await API.get("/productos");
-      return response; // devolvemos toda la respuesta, para usar .data en el Dashboard
+      return response;
     } catch (error) {
       console.error("Error al obtener productos:", error);
       throw error;
@@ -20,8 +19,6 @@ const productoService = {
 
   /**
    * Obtiene un producto por su ID
-   * @param {number} id - ID del producto
-   * @returns {Promise} - Promesa con los datos del producto
    */
   obtenerProductoPorId: async (id) => {
     try {
@@ -35,8 +32,6 @@ const productoService = {
 
   /**
    * Obtiene productos por categoría
-   * @param {string} categoria - Categoría a filtrar
-   * @returns {Promise} - Promesa con los datos de productos
    */
   obtenerProductosPorCategoria: async (categoria) => {
     try {
@@ -50,12 +45,14 @@ const productoService = {
 
   /**
    * Crea un nuevo producto (para admin)
-   * @param {Object} producto - Datos del producto
-   * @returns {Promise}
+   * Si el producto incluye imágenes, debe enviarse como FormData.
    */
   crearProducto: async (producto) => {
     try {
-      const response = await API.post("/productos", producto);
+      const isFormData = producto instanceof FormData;
+      const response = await API.post("/productos", producto, {
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+      });
       return response;
     } catch (error) {
       console.error("Error al crear producto:", error);
@@ -63,15 +60,55 @@ const productoService = {
     }
   },
 
+  
+  /**
+   * Subir galeria
+   */
+  subirGaleria: async (id, data) => {
+    try {
+      const res = await API.post(`/productos/${id}/galeria`, data, {
+        headers: {
+            'Content-Type': 'multipart/form-data',  
+        }
+      });
+      return res;
+
+    } catch (error) {
+      console.log("Error al subir la imagen:", error)
+      throw error;
+    }
+  },
+  
+   /**
+   * Actualiza solo la portada de un producto (ruta separada para subir imagen)
+   * @param {number} id - ID del producto
+   * @param {FormData} data - FormData con el campo 'portada'
+   */
+  actualizarPortada: async (id, formData, token) => {
+    try {
+      const response = await API.put(`/productos/${id}/portada`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',  
+            'Authorization': `Bearer ${token}`,
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error(`Error al actualizar la portada del producto con ID ${id}:`, error);
+      throw error;
+    }
+  },
+
   /**
    * Actualiza un producto existente (para admin)
-   * @param {number} id - ID del producto
-   * @param {Object} producto - Datos a actualizar
-   * @returns {Promise}
+   * Puede recibir JSON o FormData (para editar con imagen).
    */
   actualizarProducto: async (id, producto) => {
     try {
-      const response = await API.put(`/productos/${id}`, producto);
+      const isFormData = producto instanceof FormData;
+      const response = await API.put(`/productos/${id}`, producto, {
+        headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+      });
       return response;
     } catch (error) {
       console.error(`Error al actualizar producto con ID ${id}:`, error);
@@ -81,8 +118,6 @@ const productoService = {
 
   /**
    * Inactiva un producto (activo = false)
-   * @param {number} id - ID del producto
-   * @returns {Promise}
    */
   inactivarProducto: async (id) => {
     try {
@@ -95,11 +130,7 @@ const productoService = {
   },
 
   /**
-   
-  /**
    * Elimina un producto (para admin)
-   * @param {number} id - ID del producto
-   * @returns {Promise}
    */
   eliminarProducto: async (id) => {
     try {

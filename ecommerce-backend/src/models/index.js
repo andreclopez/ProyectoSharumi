@@ -13,6 +13,7 @@ import defineProveedor from "./Proveedor.js";
 import defineUsuario from "./Usuario.js";
 import defineMensaje from "./Mensaje.js";
 import defineRol from "./Rol.js";
+import defineArchivo from "./Archivo.js";
 
 // Definición de modelos
 const Usuario = defineUsuario(sequelize);
@@ -28,6 +29,7 @@ const Pago = definePago(sequelize);
 const Pedido = definePedido(sequelize);
 const PedidoxProducto = definePedidoxProducto(sequelize);
 const Mensaje = defineMensaje(sequelize);
+const Archivo = defineArchivo(sequelize);
 
 // Relaciones
 
@@ -71,6 +73,10 @@ Producto.belongsTo(Categoria, { foreignKey: 'idCategoria', as: 'categoria' });
 Producto.hasMany(Mensaje, { foreignKey: 'idProducto', as: 'mensajes' });
 Mensaje.belongsTo(Producto, { foreignKey: 'idProducto', as: 'producto' });
 
+// Usuario ↔ Mensaje
+Usuario.hasMany(Mensaje, { foreignKey: 'idUsuario', as: 'mensajes' });
+Mensaje.belongsTo(Usuario, { foreignKey: 'idUsuario', as: 'usuario' });
+
 // Carrito ↔ Producto (muchos a muchos)
 Carrito.belongsToMany(Producto, { through: 'CarritoxProducto', foreignKey: 'idCarrito', as: 'productos' });
 Producto.belongsToMany(Carrito, { through: 'CarritoxProducto', foreignKey: 'idProducto', as: 'carritos' });
@@ -97,6 +103,14 @@ Pedido.belongsTo(CuponDescuento, { foreignKey: 'idCuponDescuento', as: 'cupon' }
 Pedido.hasOne(Pago, { foreignKey: 'idPedido', as: 'pago' });
 Pago.belongsTo(Pedido, { foreignKey: 'idPedido', as: 'pedido' });
 
+// Producto ↔ Archivo
+Producto.hasMany(Archivo, { foreignKey: 'idProducto', as: 'archivos', onDelete: "CASCADE", onUpdate: "CASCADE", });
+Archivo.belongsTo(Producto, { foreignKey: 'idProducto', as: 'producto', onDelete: "SET NULL", onUpdate: "CASCADE", });
+
+// Categoria ↔ Archivo
+Categoria.hasMany(Archivo, { foreignKey: 'idCategoria', as: 'archivos', onDelete: "CASCADE", onUpdate: "CASCADE", });
+Archivo.belongsTo(Categoria, { foreignKey: 'idCategoria', as: 'categoria', onDelete: "SET NULL", onUpdate: "CASCADE", });
+
 export {
   sequelize,
   Usuario,
@@ -112,4 +126,5 @@ export {
   Pedido,
   PedidoxProducto,
   Mensaje,
+  Archivo,
 };

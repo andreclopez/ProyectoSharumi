@@ -1,191 +1,433 @@
-import { useState, useEffect } from 'react'; 
+import { useState, useEffect, useCallback } from 'react';
+import api from '../../services/api.js';
+import Modal from '../../components/admin/Modal/Modal.jsx';
+import ConfirmationDialog from '../../components/admin/ConfirmationDialog.jsx';
+import Pagination from '../../components/admin/Paginacion.jsx';
+import RenderSkeletonRows from '../../components/admin/RenderSkeletonRows.jsx';
+import useAuthStore from '../../store/authStore.js';
 import usuarioService from '../../services/usuarioService.js';
-import Cargando from '../../components/generales/Cargando.jsx';
-import Error from '../../components/generales/Error.jsx';
+import { Users, Search, Filter, Plus } from "lucide-react";
+import { IconButton, TableContainer } from '@mui/material';
+import EditSquareIcon from '@mui/icons-material/EditSquare';
+import DeleteForever from '@mui/icons-material/DeleteForever';
+import ToggleOnIcon from '@mui/icons-material/ToggleOn';
+import ToggleOffIcon from '@mui/icons-material/ToggleOff';
+import * as toast from '../../../src/utils/toast.js';
+import moment from 'moment';
+
+const API_URL = '/usuarios';
 
 const UsuariosAdmin = () => {
+  const { token } = useAuthStore();
+
+  // Datos
   const [usuarios, setUsuarios] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Filtros y orden
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortField, setSortField] = useState('nombre');
+  const [sortDirection, setSortDirection] = useState('asc');
+
   // Paginación
-  const [paginaActual, setPaginaActual] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
-  const limite = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  // Formulario
-  const [formVisible, setFormVisible] = useState(false);
-  const [editar, setEditar] = useState(false);
-  const [usuarioEdit, setUsuarioEdit] = useState(null);
+  // Modal y edición
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
-  const [nombre, setNombre] = useState('');
-  const [apellido, setApellido] = useState('');
-  const [email, setEmail] = useState('');
-  const [idRol, setIdRol] = useState(1);
-  const [activo, setActivo] = useState(true);
-  const [password, setPassword] = useState('');
-  const [fechaRegistro, setFechaRegistro] = useState(new Date().toISOString().slice(0,16));
+  // Confirmación de eliminación
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
-  const obtenerUsuarios = async (page = 1) => {
-    try {
-      setCargando(true);
-      const response = await usuarioService.obtenerUsuarios({ page, limit: limite });
-      const usuariosArray = Array.isArray(response.data?.data) ? response.data.data : [];
-      setUsuarios(usuariosArray);
-      setTotalPaginas(response.data?.pagination?.totalPages || 1);
-      setError(null);
-    } catch (err) {
-      console.error('Error al obtener usuarios:', err);
-      setError('No se pudieron cargar los usuarios.');
-    } finally {
-      setCargando(false);
-    }
+  // Manejo de roles
+  const rolesMap = {
+    1: "Administrador",
+    2: "Usuario",
+    3: "Vendedor"
   };
 
+  // FormData
+  const [formData, setFormData] = useState({
+    nombre: '',
+    apellido: '',
+    email: '',
+    password: '',
+    idRol: 1,
+    activo: true,
+    fechaRegistro: new Date().toISOString().slice(0,16)
+  });
+
+  const fetchUsuarios = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: debouncedSearchTerm || undefined,
+        sort: sortField,
+        direction: sortDirection,
+        status: statusFilter !== 'all' ? statusFilter : undefined
+      };
+
+      const res = await api.get(API_URL, {
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setUsuarios(res.data.data || []);
+      setTotalPages(res.data.pagination?.totalPages || 1);
+      setTotalItems(res.data.pagination?.totalItems || 0);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Error cargando usuarios');
+      setUsuarios([]);
+      toast.error('Error cargando usuarios');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, debouncedSearchTerm, sortField, sortDirection, statusFilter, token, itemsPerPage]);
+
   useEffect(() => {
-    obtenerUsuarios(paginaActual);
-  }, [paginaActual]);
+    fetchUsuarios();
+  }, [fetchUsuarios]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const usuariosFiltrados = usuarios.filter(u => {
+    const coincideBusqueda = `${u.nombre} ${u.apellido} ${u.email}`
+      .toLowerCase()
+      .includes(debouncedSearchTerm.toLowerCase());
+
+    const coincideEstado =
+      statusFilter === 'all' || String(u.activo) === statusFilter;
+
+    return coincideBusqueda && coincideEstado;
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleOpenModal = (user = null) => {
+    if (user) {
+      setEditingUser(user);
+      setFormData({
+        nombre: user.nombre,
+        apellido: user.apellido,
+        email: user.email,
+        password: '',
+        idRol: user.idRol,
+        activo: user.activo,
+        fechaRegistro: moment(user.fechaRegistro).format('YYYY-MM-DDTHH:mm')
+      });
+    } else {
+      setEditingUser(null);
+      setFormData({
+        nombre: '',
+        apellido: '',
+        email: '',
+        password: '',
+        idRol: 1,
+        activo: true,
+        fechaRegistro: new Date().toISOString().slice(0,16)
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => setIsModalOpen(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const usuarioData = { nombre, apellido, email, idRol, activo, fechaRegistro };
-    if (!editar) usuarioData.password = password;
-
     try {
-      let response;
-      if (editar && usuarioEdit?.id) {
-        response = await usuarioService.actualizarUsuario(usuarioEdit.id, usuarioData);
-        setUsuarios(prev => prev.map(u => u.id === usuarioEdit.id ? response.data.data || response.data : u));
+      if (editingUser) {
+        await usuarioService.actualizarUsuario(editingUser.id, formData);
+        toast.success('Usuario actualizado');
       } else {
-        response = await usuarioService.crearUsuario(usuarioData);
-        setUsuarios(prev => [...prev, response.data.data || response.data]);
+        await usuarioService.crearUsuario(formData);
+        toast.success('Usuario creado');
       }
-
-      // Limpiar formulario
-      setNombre(''); setApellido(''); setEmail('');
-      setIdRol(1); setActivo(true); setPassword('');
-      setFechaRegistro(new Date().toISOString().slice(0,16));
-      setEditar(false); setUsuarioEdit(null); setFormVisible(false);
-      obtenerUsuarios(paginaActual); // refrescar página actual
+      handleCloseModal();
+      fetchUsuarios();
     } catch (err) {
-      alert('Error al guardar el usuario. Revisá la consola.');
       console.error(err);
+      toast.error('Error al guardar usuario');
     }
   };
 
-  const handleEditarClick = (usuario) => {
-    setEditar(true);
-    setUsuarioEdit(usuario);
-    setNombre(usuario.nombre); setApellido(usuario.apellido); setEmail(usuario.email);
-    setIdRol(usuario.idRol); setActivo(usuario.activo); setPassword('');
-    setFormVisible(true);
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setShowDeleteConfirm(true);
   };
 
-  const handleToggleActivo = async (usuario) => {
+  const handleConfirmDelete = async () => {
     try {
-      const updated = { ...usuario, activo: !usuario.activo };
-      await usuarioService.actualizarUsuario(usuario.id, updated);
-      setUsuarios(prev => prev.map(u => u.id === usuario.id ? updated : u));
+      await usuarioService.eliminarUsuarioForce(userToDelete.id);
+      toast.success('Usuario eliminado');
+      fetchUsuarios();
     } catch (err) {
-      alert('Error al cambiar el estado del usuario.');
       console.error(err);
+      toast.error('Error eliminando usuario');
+    }
+    setShowDeleteConfirm(false);
+  };
+
+  const handleCancelDelete = () => setShowDeleteConfirm(false);
+
+  const handleToggleActivo = async (user) => {
+    try {
+      const updated = { ...user, activo: !user.activo };
+      await usuarioService.actualizarUsuario(user.id, updated);
+      fetchUsuarios();
+    } catch (err) {
+      console.error(err);
+      toast.error('Error cambiando estado del usuario');
     }
   };
 
-  const handleEliminar = async (usuario) => {
-    const confirmDelete = window.confirm(`⚠️ Este usuario podría tener datos asociados. ¿Deseas eliminarlo definitivamente?`);
-    if (!confirmDelete) return;
-
-    try {
-      await usuarioService.eliminarUsuarioForce(usuario.id);
-      setUsuarios(prev => prev.filter(u => u.id !== usuario.id));
-      obtenerUsuarios(paginaActual); // refrescar página
-    } catch (err) {
-      alert('No se pudo eliminar el usuario definitivamente.');
-      console.error(err);
-    }
+  const handleSort = (column) => {
+    if (sortField === column) setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    else setSortField(column);
+    setCurrentPage(1);
   };
 
   return (
     <div className="w-full p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-[#5a2a2a]">Gestión de Usuarios</h2>
-        <button className="bg-[#a0522d] text-white px-4 py-2 rounded hover:bg-[#5a2a2a]"
-                onClick={() => setFormVisible(!formVisible)}>Nuevo Usuario</button>
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-[#5a2a2a] flex items-center">
+            <Users className="mr-2" />
+            Gestión de Usuarios
+          </h2>
+          <p className="text-[#5a2a2a] mt-1">Administra los usuarios del sistema</p>
+        </div>
+        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar usuario..."
+              className="pl-10 pr-4 py-2 border border-[#5a2a2a] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a0522d]"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-[#5a2a2a]" />
+          </div>
+          <div className="relative">
+            <select
+              className="pl-10 pr-4 py-2 border border-[#5a2a2a] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a0522d]"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Todos los estados</option>
+              <option value="true">Activo</option>
+              <option value="false">Inactivo</option>
+            </select>
+            <Filter className="absolute left-3 top-2.5 h-5 w-5 text-[#5a2a2a]" />
+          </div>
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-[#a0522d] to-[#5a2a2a] text-[#fdf6f0] rounded-lg hover:from-[#5a2a2a] hover:to-orange-800 transition-all duration-200 shadow-md"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Nuevo Usuario
+          </button>
+        </div>
       </div>
 
-      {/* Formulario */}
-      {formVisible && (
-        <form className="mb-6 p-4 border rounded bg-[#fdf6f0] flex flex-col space-y-4" onSubmit={handleSubmit}>
-          <input type="text" placeholder="Nombre" value={nombre} onChange={e => setNombre(e.target.value)} required className="p-2 border rounded" />
-          <input type="text" placeholder="Apellido" value={apellido} onChange={e => setApellido(e.target.value)} required className="p-2 border rounded" />
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="p-2 border rounded" />
-          {!editar && <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} required className="p-2 border rounded" />}
-          <select value={idRol} onChange={e => setIdRol(Number(e.target.value))} className="p-2 border rounded">
-            <option value={1}>Usuario</option>
-            <option value={2}>Administrador</option>
-          </select>
-          <label className="flex items-center space-x-2">
-            <input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />
-            <span>Activo</span>
-          </label>
-          <input type="datetime-local" value={fechaRegistro} onChange={e => setFechaRegistro(e.target.value)} required className="p-2 border rounded"/>
-          <div className="flex space-x-4">
-            <button type="submit" className="bg-[#a0522d] text-[#fdf6f0] px-4 py-2 rounded hover:bg-[#5a2a2a]">Guardar</button>
-            <button type="button" className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400" onClick={() => setFormVisible(false)}>Cancelar</button>
+      {/* Modal */}
+      {isModalOpen && (
+        <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
+          <div className="w-full max-w-lg rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: '#fdf6f0' }}>
+            <div className="bg-[#5a2a2a] p-4">
+              <h2 className="text-[#fdf6f0] text-lg font-semibold">
+                {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+              </h2>
+            </div>
+            
+            <div className="p-6 text-[#5a2a2a]">
+              <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+                <input
+                  type="text"
+                  name="nombre"
+                  value={formData.nombre}
+                  onChange={handleInputChange}
+                  placeholder="Nombre"
+                  required
+                  className="p-2 border border-[#5a2a2a] rounded"
+                />
+                <input
+                  type="text"
+                  name="apellido"
+                  value={formData.apellido}
+                  onChange={handleInputChange}
+                  placeholder="Apellido"
+                  required
+                  className="p-2 border border-[#5a2a2a] rounded"
+                />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="Email"
+                  required
+                  className="p-2 border border-[#5a2a2a] rounded"
+                />
+                {!editingUser && (
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Contraseña"
+                    required
+                    className="p-2 border border-[#5a2a2a] rounded"
+                  />
+                )}
+                <select
+                  name="idRol"
+                  value={formData.idRol}
+                  onChange={handleInputChange}
+                  className="p-2 border border-[#5a2a2a] rounded"
+                >
+                  <option value={1}>Administrador</option>
+                  <option value={2}>Usuario</option>
+                  <option value={3}>Vendedor</option>
+                </select>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    name="activo"
+                    checked={formData.activo}
+                    onChange={handleInputChange}
+                  />
+                  <span>Activo</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  name="fechaRegistro"
+                  value={formData.fechaRegistro}
+                  onChange={handleInputChange}
+                  required
+                  className="p-2 border border-[#5a2a2a] rounded"
+                />
+
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-[#5a2a2a] text-[#fdf6f0] hover:bg-[#a0522d] px-4 py-2 rounded">
+                    Guardar
+                  </button>
+                  <button type="button" onClick={handleCloseModal} className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </form>
+        </Modal>
       )}
 
-      {cargando && <Cargando mensaje="Cargando usuarios..." />}
-      {error && <Error mensaje={error} />}
+      {/* Loading Skeleton */}
+      {loading && <RenderSkeletonRows itemsPerPage={itemsPerPage} />}
 
-      {!cargando && !error && (
+      {/* Error */}
+      {error && <div className="text-red-500">{error}</div>}
+
+      {/* Tabla */}
+      {!loading && !error && (
         <>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[#5a2a2a] text-[#fdf6f0]">
-                <th className="py-2 px-4">ID</th>
-                <th className="py-2 px-4">Nombre</th>
-                <th className="py-2 px-4">Apellido</th>
-                <th className="py-2 px-4">Email</th>
-                <th className="py-2 px-4">Rol</th>
-                <th className="py-2 px-4">Activo</th>
-                <th className="py-2 px-4">Fecha registro</th>
-                <th className="py-2 px-4">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usuarios.map(u => (
-                <tr key={u.id} className="border-b border-gray-300">
-                  <td className="py-2 px-4">{u.id}</td>
-                  <td className="py-2 px-4">{u.nombre}</td>
-                  <td className="py-2 px-4">{u.apellido}</td>
-                  <td className="py-2 px-4">{u.email}</td>
-                  <td className="py-2 px-4">{u.idRol === 1 ? 'Usuario' : 'Administrador'}</td>
-                  <td className="py-2 px-4">{u.activo ? 'Sí' : 'No'}</td>
-                  <td className="py-2 px-4">{u.fechaRegistro}</td>
-                  <td className="py-2 px-4 space-x-2">
-                    <button className="px-3 py-1 bg-[#a0522d] hover:bg-[#5a2a2a] text-[#fdf6f0] rounded" onClick={() => handleEditarClick(u)}>Editar</button>
-                    <button className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded" onClick={() => handleToggleActivo(u)}>
-                      {u.activo ? 'Inactivar' : 'Activar'}
-                    </button>
-                    <button className="px-3 py-1 bg-red-500 hover:bg-red-700 text-white rounded" onClick={() => handleEliminar(u)}>Eliminar</button>
-                  </td>
+          <TableContainer sx={{ borderRadius: "12px", boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#5a2a2a] text-[#fdf6f0]">
+                  <th className="py-2 px-4 cursor-pointer" onClick={() => handleSort('nombre')}>Nombre</th>
+                  <th className="py-2 px-4 cursor-pointer" onClick={() => handleSort('apellido')}>Apellido</th>
+                  <th className="py-2 px-4 cursor-pointer" onClick={() => handleSort('email')}>Email</th>
+                  <th className="py-2 px-4 cursor-pointer" onClick={() => handleSort('idRol')}>Rol</th>
+                  <th className="py-2 px-4">Estado</th>
+                  <th className="py-2 px-4 cursor-pointer" onClick={() => handleSort('fechaRegistro')}>Fecha registro</th>
+                  <th className="py-2 px-4">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {usuariosFiltrados
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map(u => (
+                    <tr
+                      key={u.id}
+                      className="border-b border-[#5a2a2a]/20 hover:bg-[#fdf6f0]/70 transition-colors duration-200"
+                    >
+                      <td className="py-2 px-4">{u.nombre}</td>
+                      <td className="py-2 px-4">{u.apellido}</td>
+                      <td className="py-2 px-4">{u.email}</td>
+                      <td className="py-2 px-4">{rolesMap[u.idRol] || "Desconocido"}</td>
+                      <td className="py-2 px-4">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            u.activo
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {u.activo ? "Activo" : "Inactivo"}
+                        </span>
+                      </td>
+                      <td className="py-2 px-4">{new Date(u.fechaRegistro).toLocaleString()}</td>
+                      <td className="py-2 px-4 flex space-x-2 justify-start items-center">
+                        <IconButton onClick={() => handleOpenModal(u)} style={{ color: '#5a2a2a' }}>
+                          <EditSquareIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton onClick={() => handleToggleActivo(u)} style={{ color: '#5a2a2a' }}>
+                          {u.activo ? <ToggleOnIcon fontSize="small" /> : <ToggleOffIcon fontSize="small" />}
+                        </IconButton>
+                        <IconButton onClick={() => handleDeleteClick(u)} style={{ color: '#a0522d' }}>
+                          <DeleteForever fontSize="small" />
+                        </IconButton>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
 
-          {/* Controles de paginación */}
-          <div className="flex justify-center space-x-4 mt-4">
-            <button disabled={paginaActual === 1} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                    onClick={() => setPaginaActual(prev => prev - 1)}>Anterior</button>
-            <span className="py-2 px-4">{paginaActual} / {totalPaginas}</span>
-            <button disabled={paginaActual === totalPaginas} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                    onClick={() => setPaginaActual(prev => prev + 1)}>Siguiente</button>
-          </div>
+            </table>
+          </TableContainer>
+
+          {/* Paginación */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={(page) => setCurrentPage(page)}
+          />
         </>
+      )}
+
+      {/* Confirmación de eliminación */}
+      {showDeleteConfirm && (
+        <ConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={handleCancelDelete}
+          onConfirm={handleConfirmDelete}
+          title="Eliminar Usuario"
+          confirmClass="bg-[#5a2a2a] hover:bg-[#a0522d] text-[#fdf6f0]"
+          width="w-[32rem]"
+        >
+          <p className="text-gray-700 text-base text-center">
+            ⚠️ El usuario <strong>"{userToDelete?.email}"</strong> se eliminará permanentemente.  
+            ¿Deseas continuar?
+          </p>
+        </ConfirmationDialog>
       )}
     </div>
   );

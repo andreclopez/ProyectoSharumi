@@ -1,13 +1,18 @@
 import express from 'express';
+import { protect as verificarToken } from '../middleware/authMiddleware.js'
 import { 
     obtenerPedidos, 
     obtenerPedidoPorId, 
     crearPedido, 
     actualizarPedido, 
-    eliminarPedido 
+    eliminarPedido, 
+    obtenerMisPedidos
 } from '../controllers/pedidoController.js';
 
 const router = express.Router();
+
+// Obtener pedidos usuario logueado
+router.get('/mis-pedidos', verificarToken, obtenerMisPedidos);
 
 // Listar pedidos
 router.get('/', obtenerPedidos);
@@ -16,7 +21,7 @@ router.get('/', obtenerPedidos);
 router.get('/:id', obtenerPedidoPorId);
 
 // Crear pedido
-router.post('/', async (req, res) => {
+router.post('/', verificarToken, async (req, res) => {
   try {
     await crearPedido(req, res);
   } catch (error) {

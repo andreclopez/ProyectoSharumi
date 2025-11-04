@@ -17,8 +17,8 @@ const defineCategoria = (sequelize) => {
       allowNull: true, 
     },
     imagenUrl: {
-      type: DataTypes.TEXT,
-      allowNull: false,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     activa: {
       type: DataTypes.BOOLEAN,

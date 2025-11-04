@@ -1,8 +1,9 @@
-import { Producto, PedidoxProducto, CarritoxProducto, Mensaje } from '../models/index.js';
+import { Producto, PedidoxProducto, CarritoxProducto, Mensaje, Archivo, Categoria, Usuario } from '../models/index.js';
 import { validationResult } from 'express-validator';
+import fs from 'node:fs';
 import { Op } from 'sequelize';
 
-// Obtener todos los productos (con filtros opcionales)
+// --- OBTENER TODOS LOS PRODUCTOS (con filtros opcionales) ---
 export const obtenerProductos = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -14,23 +15,17 @@ export const obtenerProductos = async (req, res) => {
       });
     }
 
-    const { page = 1, limit = 10, categoria, oferta, descuentoMin, } = req.query;
+    const { page = 1, limit = 10, categoria, oferta, descuentoMin } = req.query;
     const offset = (page - 1) * limit;
 
     const whereClause = {};
+    if (categoria) whereClause.idCategoria = categoria;
+    if (oferta === 'true') whereClause.oferta = true;
+    if (descuentoMin) whereClause.descuento = { [Op.gte]: Number(descuentoMin) };
 
-    if (categoria) {
-      whereClause.categoria = categoria;
-    }
-    if (oferta === 'true') {
-      whereClause.oferta = true;
-    }
-    if (descuentoMin) {
-      whereClause.descuento = { [Op.gte]: Number(descuentoMin) };
-    }
-
-    const productos = await Producto.findAndCountAll({ 
+    const productos = await Producto.findAndCountAll({
       where: whereClause,
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] }], 
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [['fechaAlta', 'DESC']]
@@ -47,9 +42,10 @@ export const obtenerProductos = async (req, res) => {
         itemsPerPage: parseInt(limit)
       }
     });
+
   } catch (error) {
     console.error("Error al obtener los productos:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error interno del servidor",
       errors: [error.message]
@@ -57,36 +53,26 @@ export const obtenerProductos = async (req, res) => {
   }
 };
 
-// Obtener producto por ID
+// --- OBTENER PRODUCTO POR ID ---
 export const obtenerProductoPorId = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Parámetros inválidos",
-        errors: errors.array(),
-      });
-    }
-
     const { id } = req.params;
-    const producto = await Producto.findByPk(id);
+    const producto = await Producto.findByPk(id, {
+      include: [{ model: Categoria, as:'categoria', attributes: ['id', 'nombre'] }] 
+    });
 
     if (!producto) {
-      return res.status(404).json({
-        success: false,
-        message: "Producto no encontrado"
-      });
+      return res.status(404).json({ success: false, message: "Producto no encontrado" });
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Producto obtenido exitosamente",
       data: producto
     });
   } catch (error) {
     console.error("Error al obtener el producto:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error interno del servidor",
       errors: [error.message]
@@ -94,132 +80,209 @@ export const obtenerProductoPorId = async (req, res) => {
   }
 };
 
-// Crear producto (solo admin)
+// --- CREAR PRODUCTO ---
 export const crearProducto = async (req, res) => {
+
   try {
+    // Validar errores de express-validator
     const errors = validationResult(req);
-    if (!errors.isEmpty()) { 
-      return res.status(400).json({
-        success: false,
-        message: "Datos de entrada inválidos",
-        errors: errors.array()
-      });
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, message: "Datos inválidos", errors: errors.array() });
     }
 
-    const { nombre, descripcion, precio, stock, imagenUrl, idUsuario, oferta, descuento } = req.body;
+    const portadaFile = req.files && req.files.portada ? req.files.portada[0] : null; 
     
+    if (!portadaFile) { 
+      return res.status(400).json({ success: false, message: "La imagen de portada es obligatoria." });
+    }
+
+    const galeriaFiles = req.files && req.files.galeria ? req.files.galeria : [];   // 👈 OBTENER GALERÍA
+
+    // Extraer campos y convertir manualmente los números
+    const nombre = req.body.nombre;
+    const descripcion = req.body.descripcion ?? '';
+    const precio = parseFloat(req.body.precio);
+    const stock = parseInt(req.body.stock);
+    const idUsuario = parseInt(req.body.idUsuario);
+    const idCategoria = req.body.idCategoria ? parseInt(req.body.idCategoria) : null;
+    const oferta = req.body.oferta === 'true';
+    const descuento = parseFloat(req.body.descuento) || 0;
+    
+    const imagenUrlParaDB = `/uploads/productos/portadas/${portadaFile.filename}`;
+
+    if (req.file) {
+        const baseUploadPath = 'uploads/productos/portadas'; 
+        const fileRoute = req.file.path.split(baseUploadPath)[1] || `/${req.file.filename}`;
+        
+        imagenUrlParaDB = `/uploads/productos/portadas/${req.file.filename}`;
+    }
+
+    // Validar usuario
+    const usuario = await Usuario.findByPk(idUsuario);
+    if (!usuario) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+
+    // Validar categoría (si se pasó)
+    let categoria = null;
+    if (idCategoria) {
+      categoria = await Categoria.findByPk(idCategoria);
+      if (!categoria) {
+        return res.status(404).json({ success: false, message: "Categoría no encontrada" });
+      }
+    }
+
+    // Crear producto
     const nuevoProducto = await Producto.create({
-      nombre, 
-      descripcion, 
+      nombre,
+      descripcion,
       precio,
-      stock, 
-      imagenUrl,
+      stock,
       idUsuario,
-      oferta: oferta ?? false,    
-      descuento: descuento ?? 0   
+      idCategoria,
+      oferta,
+      descuento, 
+      imagenUrl: imagenUrlParaDB,
     });
 
-    return res.status(201).json({
+    let nuevoArchivo = null; 
+    
+    if (portadaFile) { 
+        const galeriaFiles = req.files && req.files.galeria ? req.files.galeria : [];
+        const archivosAguardar = [];
+
+    // Crear archivo (portada)
+    archivosAguardar.push(Archivo.create({
+        nombre: portadaFile.filename,
+        nombreOriginal: portadaFile.originalname,
+        tipo: portadaFile.mimetype,
+        peso: portadaFile.size,
+        ruta: portadaFile.path,
+        idProducto: nuevoProducto.id
+    }));
+
+    galeriaFiles.forEach(file => {
+        archivosAguardar.push(Archivo.create({
+            nombre: file.filename,
+            nombreOriginal: file.originalname,
+            tipo: file.mimetype,
+            peso: file.size,
+            ruta: file.path,
+            idProducto: nuevoProducto.id
+        }));
+    });
+
+    await Promise.all(archivosAguardar);
+
+    nuevoArchivo = await archivosAguardar[0]; 
+    
+    }
+    
+    res.status(201).json({
       success: true,
       message: "Producto creado exitosamente",
-      data: nuevoProducto
+      data: {
+        ...nuevoProducto.toJSON(),
+        categoria: categoria ? { id: categoria.id, nombre: categoria.nombre } : null,
+        portada: nuevoArchivo
+      }
     });
+
   } catch (error) {
     console.error("Error al crear producto:", error);
-    if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        success: false,
-        message: "Error de validación",
-        errors: error.errors.map(e => e.message)
-      });
-    }
-    return res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
-      errors: [error.message]
-    });
+    const validationError = error.errors?.map(e => e.message) || [error.message];
+    res.status(500).json({ success: false, message: "Error interno del servidor", errors: validationError });
   }
 };
 
-// Actualizar producto (solo admin)
+// --- ACTUALIZAR PRODUCTO ---
 export const actualizarProducto = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Datos de entrada inválidos",
-        errors: errors.array()
-      });
-    }
-
     const producto = await Producto.findByPk(id);
+    if (!producto) return res.status(404).json({ success: false, message: "Producto no encontrado" });
 
-    if (!producto) {
-      return res.status(404).json({
-        success: false,
-        message: "Producto no encontrado para actualizar"
+    const { idCategoria } = req.body || {}; 
+    let categoria = null;
+
+    if (idCategoria) {
+      categoria = await Categoria.findByPk(idCategoria); 
+      if (!categoria) return res.status(404).json({ success: false, message: "Categoría no encontrada" });
+    }
+
+    const datosActualizados = req.body;
+
+    if (req.file) { 
+      const imagenUrl = `/uploads/productos/portadas/${req.file.filename}`;
+      datosActualizados.imagenUrl = imagenUrl; 
+      
+      const rutaAnterior = producto.imagenUrl; 
+
+      // 1. Si existe una portada anterior
+      if (rutaAnterior && rutaAnterior.includes('/uploads/')) {
+        const rutaFisicaAnterior = rutaAnterior.substring(1); 
+        
+        // 2. Buscar y eliminar el registro de Archivo asociado a esa portada
+        const archivoAnterior = await Archivo.findOne({ 
+            where: { nombre: rutaAnterior.split('/').pop(), idProducto: producto.id }
+        });
+        
+        if (archivoAnterior) {
+            await archivoAnterior.destroy();
+        }
+        
+        // 3. Eliminar el archivo físico
+        if (fs.existsSync(rutaFisicaAnterior)) {
+          fs.unlinkSync(rutaFisicaAnterior);
+          console.log(`Portada anterior eliminada: ${rutaFisicaAnterior}`);
+        }
+      }
+      // 2. Crear registro en Archivo
+      await Archivo.create({
+        nombre: req.file.filename,
+        nombreOriginal: req.file.originalname,
+        tipo: req.file.mimetype,
+        peso: req.file.size,
+        ruta: req.file.path,
+        idProducto: producto.id
       });
     }
 
-    const productoActualizado = await producto.update(req.body);
-
-    return res.status(200).json({
+    const productoActualizado = await producto.update(datosActualizados);
+    
+    res.status(200).json({
       success: true,
       message: "Producto actualizado exitosamente",
-      data: productoActualizado
+      data: {
+        ...productoActualizado.toJSON(),
+        categoria: categoria ? { id: categoria.id, nombre: categoria.nombre } : null
+      }
     });
+
   } catch (error) {
     console.error("Error al actualizar producto:", error);
-    if (error.name === 'SequelizeValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: "Error de validación",
-        errors: error.errors.map(e => e.message)
-      });
-    }
-    return res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
-      errors: [error.message]
-    });
+    const validationError = error.errors?.map(e => e.message) || [error.message];
+    res.status(500).json({ success: false, message: "Error interno del servidor", errors: validationError });
   }
 };
 
-// Eliminar producto (hard delete con limpieza de relaciones)
+// --- ELIMINAR PRODUCTO ---
 export const eliminarProducto = async (req, res) => {
   try {
     const { id } = req.params;
-
     const producto = await Producto.findByPk(id);
-    if (!producto) {
-      return res.status(404).json({
-        success: false,
-        message: "Producto no encontrado"
-      });
-    }
+    if (!producto) return res.status(404).json({ success: false, message: "Producto no encontrado" });
 
-    // Borrar dependencias primero
     await Mensaje.destroy({ where: { idProducto: id } });
     await CarritoxProducto.destroy({ where: { idProducto: id } });
     await PedidoxProducto.destroy({ where: { idProducto: id } });
 
-    // Finalmente, eliminar el producto
     await producto.destroy();
 
-    res.status(200).json({
-      success: true,
-      message: "Producto eliminado en cascada (manual)"
-    });
+    res.status(200).json({ success: true, message: "Producto eliminado en cascada (manual)" });
 
   } catch (error) {
     console.error("Error al eliminar producto:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: "Error interno del servidor", error: error.message });
   }
 };

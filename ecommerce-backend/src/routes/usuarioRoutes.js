@@ -4,11 +4,16 @@ import {
   obtenerUsuarioPorId, 
   crearUsuario, 
   actualizarUsuario, 
-  eliminarUsuario 
+  eliminarUsuario, 
+  perfilController
 } from '../controllers/usuarioController.js';
 import { validateUsuarioCreate, validateId, validatePagination } from '../middleware/validation.js'; // Validaciones
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+// Ruta perfil usuario (protegida)
+router.get('/perfil', protect, perfilController);
 
 // GET /api/usuarios - Obtener todos los usuarios
 router.get(

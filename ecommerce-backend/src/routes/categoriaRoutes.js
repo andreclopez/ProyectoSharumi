@@ -1,22 +1,18 @@
 import express from 'express';
 import { Producto } from '../models/index.js';
+import { uploadCategoria } from '../middleware/multerMiddleware.js';
 import { validationResult, body, param } from 'express-validator';
+import { validateCategoriaCreate, validateCategoriaUpdate } from '../middleware/validation.js';
 import {
     obtenerCategoriasActivas, 
     obtenerCategoriaPorId, 
     crearCategoria, 
     actualizarCategoria, 
+    actualizarPortadaCategoria,
     eliminarCategoria 
 } from '../controllers/categoriaController.js';
 
 const router = express.Router();
-
-// Validación de creación/actualización
-const validateCategoria = [
-  body('nombre')
-    .notEmpty().withMessage('El nombre es requerido')
-    .isLength({ min: 2, max: 50 }).withMessage('El nombre debe tener entre 2 y 50 caracteres')
-];
 
 // Listar categorías activas
 router.get('/', obtenerCategoriasActivas);
@@ -25,7 +21,10 @@ router.get('/', obtenerCategoriasActivas);
 router.get('/:id', obtenerCategoriaPorId);
 
 // Crear categoría
-router.post('/', validateCategoria, async (req, res) => {
+router.post('/', 
+  uploadCategoria.single('portada'),
+  [...validateCategoriaCreate],
+  async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errores: errors.array() });
 
@@ -36,8 +35,11 @@ router.post('/', validateCategoria, async (req, res) => {
   }
 });
 
+
 // Actualizar categoría
-router.put('/:id', validateCategoria, async (req, res) => {
+router.put('/:id', 
+  [...validateCategoriaUpdate],
+  async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errores: errors.array() });
 
@@ -46,6 +48,18 @@ router.put('/:id', validateCategoria, async (req, res) => {
   } catch (error) {
     res.status(400).json({ mensaje: 'Error al actualizar categoría', detalle: error.message });
   }
+});
+
+// Actualizar solo la portada
+router.put(
+  '/:id/portada', 
+  uploadCategoria.single('portada'), 
+  async (req, res) => {
+    try {
+        await actualizarPortadaCategoria(req, res); 
+    } catch (error) {
+      res.status(400).json({ mensaje: 'Error al actualizar portada', detalle: error.message })
+    }
 });
 
 // Eliminar categoría
