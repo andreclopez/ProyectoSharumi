@@ -2,45 +2,14 @@
 
 Sharumi es un proyecto de e-commerce desarrollado como parte de mi proceso de aprendizaje en desarrollo web full stack.
 Combina un backend en Node.js + Express + Sequelize (MySQL) y un frontend en React para ofrecer una experiencia completa de gestión de productos, categorías, usuarios y mensajes, tanto desde la vista pública como desde una zona administrativa.
-
 El objetivo fue construir un entorno funcional y escalable, aplicando buenas prácticas en arquitectura, control de datos y comunicación entre capas.
 
-📂 Estructura del Proyecto
-/Sharumi
-├── ecommerce-backend/
-│ ├── scripts
-│ ├── seeders
-│ ├── src/
-│ │ ├── config
-│ │ ├── controllers
-│ │ ├── db
-│ │ ├── middleware
-│ │ ├── models
-│ │ └── routes
-│ ├── uploads
-│ ├── index.js
-│ └── pruebaCupones.js
-│
-├── frontend/
-│ ├── src/
-│ │ ├── assets
-│ │ ├── components
-│ │ ├── context
-│ │ ├── hooks
-│ │ ├── pages
-│ │ ├── services
-│ │ ├── store
-│ │ └── utils
-│ └── package.json
-│
-└── README.md
 
 ⚙️ Instalación y Ejecución
 
 🔸 Requisitos previos
 
 Node.js (v18 o superior)
-
 MySQL instalado y corriendo
 
 Git
@@ -59,7 +28,6 @@ cd ../frontend
 npm install
 
 🔹 Configurar base de datos
-
 Crear una base de datos MySQL llamada sharumi_db y configurar el archivo .env en /backend con tus credenciales:
 
 DB_HOST=localhost
@@ -69,7 +37,6 @@ DB_NAME=sharumi_db
 PORT=3001
 
 🔹 Ejecutar el proyecto
-
 En dos terminales separadas:
 
 Backend: 
@@ -81,10 +48,11 @@ Frontend:
 cd frontend
 npm start
 
-
 La aplicación estará disponible en http://localhost:3000
 
+
 ⚙️🔧 Tecnologías utilizadas
+
 🔄 Backend
 
 Node.js
@@ -112,6 +80,7 @@ Axios
 React Router DOM
 
 Context API
+
 
 🔗 Endpoints principales
 
@@ -155,6 +124,7 @@ GET /mensajes → Ver mensajes
 
 POST /mensajes → Enviar mensaje
 
+
 ✳️ Pruebas funcionales realizadas
 
 Módulos cubiertos
@@ -179,6 +149,7 @@ Incorporada con parámetros page y limit.
 
 Formato de respuesta incluye data y pagination.
 
+
 📝 Changelog (última versión)
 
 ✨ Zona de administración creada con dashboard y secciones de Usuarios, Productos y Categorías.
@@ -192,6 +163,7 @@ Formato de respuesta incluye data y pagination.
 ⚡ Mejora UX: al crear un producto se actualiza la tabla sin recargar la página.
 
 🐛 Correcciones menores en controladores y servicios para mantener consistencia en formato de respuesta { success, message, data, pagination }.
+
 
 💭 Reflexión final
 
