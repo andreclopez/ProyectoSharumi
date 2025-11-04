@@ -8,34 +8,35 @@ El objetivo fue construir un entorno funcional y escalable, aplicando buenas pr�
 📂 Estructura del Proyecto
 /Sharumi
 ├── ecommerce-backend/
-|   |__scripts
-|   |__seeders
-|   |__src/
-|   |  |__config
-|   |  |__controllers
-|   |  |__db
-|   |  |__middleware
-|   |  |__models
-|   |  |__routes
-|   |__uploads
-|   |__index.js
-|   |__pruebaCupones.js
-│  
+│ ├── scripts
+│ ├── seeders
+│ ├── src/
+│ │ ├── config
+│ │ ├── controllers
+│ │ ├── db
+│ │ ├── middleware
+│ │ ├── models
+│ │ └── routes
+│ ├── uploads
+│ ├── index.js
+│ └── pruebaCupones.js
+│
 ├── frontend/
-|   |__src/
-|   |  |__assets
-|   |  |__components
-|   |  |__context
-|   |  |__hooks
-|   |  |__pages
-|   |  |__services
-|   |  |__store
-|   |  |__utils
-|   |__package.json
+│ ├── src/
+│ │ ├── assets
+│ │ ├── components
+│ │ ├── context
+│ │ ├── hooks
+│ │ ├── pages
+│ │ ├── services
+│ │ ├── store
+│ │ └── utils
+│ └── package.json
 │
 └── README.md
 
 ⚙️ Instalación y Ejecución
+
 🔸 Requisitos previos
 
 Node.js (v18 o superior)
@@ -113,6 +114,7 @@ React Router DOM
 Context API
 
 🔗 Endpoints principales
+
 Productos
 
 GET /productos → Listado de productos
@@ -180,17 +182,21 @@ Formato de respuesta incluye data y pagination.
 📝 Changelog (última versión)
 
 ✨ Zona de administración creada con dashboard y secciones de Usuarios, Productos y Categorías.
+
 ➕ CRUD completo en cada sección (crear, editar, borrar).
+
 🔄 Paginación implementada en backend (page, limit) y conectada en frontend (Usuarios y Categorías).
+
 🗑️ Soft delete y Hard delete en Usuarios y Productos.
+
 ⚡ Mejora UX: al crear un producto se actualiza la tabla sin recargar la página.
+
 🐛 Correcciones menores en controladores y servicios para mantener consistencia en formato de respuesta { success, message, data, pagination }.
 
 💭 Reflexión final
 
 Sharumi me permitió aplicar de forma integrada los conocimientos adquiridos sobre desarrollo full stack.
 Aprendí a diseñar bases de datos relacionales, a estructurar controladores y rutas de manera coherente, y a comunicar frontend y backend con claridad.
-
 También me ayudó a fortalecer la lógica de negocio, mejorar la usabilidad, y ganar confianza en la integración completa de una aplicación real.
 
 
